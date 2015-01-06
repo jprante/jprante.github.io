@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Bintray for Elasticsearch plugins</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="keywords" content="">
+    <meta name="generator" content="JBake">
+
+    <!-- styles -->
+    <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../../../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../../../css/asciidoctor.css" rel="stylesheet">
+    <link href="../../../css/base.css" rel="stylesheet">
+    <link href="../../../css/prettify.css" rel="stylesheet">
+
+    <!-- Fav and touch icons -->
+    <link rel="shortcut icon" href="../../../favicon.ico">
+  </head>
+  <body onload="prettyPrint()">
+    <div id="wrap">
+   
+	
+		<!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../../../">Jörg Prante</a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="../../../index.html">Home</a></li>
+            <li><a href="../../../about.html">About</a></li>
+            <li><a href="../../../feed.xml">Subscribe</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="container">
+
+	<div class="post">
+
+	<div class="page-header">
+		<h1>Bintray for Elasticsearch plugins</h1>
+	</div>
+
+    <p class="post-info">
+		<i class="fa fa-calendar-o"></i>
+		&nbsp;13 Januar 2013
+		&nbsp;&nbsp;&nbsp;<i class="glyphicon glyphicon-bullhorn"></i>&nbsp;
+		<a href="2013/01/18/Bintray-for-Elasticsearch-plugins.html#disqus_thread" data-disqus-identifier="2013/01/18/Bintray-for-Elasticsearch-plugins.html">
+			0 Comments
+		</a>
+	</p>
+
+	<p><div class="imageblock">
+<div class="content">
+<img src="/images/puzzle_kindergeschirr_ar.jpg" alt="puzzle kindergeschirr ar">
+</div>
+</div>
+<div class="paragraph">
+<p>design wendy boudewijns 2006</p>
+</div>
+<div class="sect1">
+<h2 id="_publishing_plugins">Publishing plugins</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The development of Elasticsearch plugins is a wonderful thing. Once the plugin is ready, you can be sure the large
+community can download the zip archive and install it with the ./bin/plugin command line tool which comes with
+every Elasticsearch distribution.</p>
+</div>
+<div class="paragraph">
+<p>Plugins are the preferred method for decentralized, voluntary development of Elasticsearch extensions.
+There are a lot of plugins that extend the power of Elasticsearch. And, it is very easy to install them all.</p>
+</div>
+<div class="paragraph">
+<p>It is the easy way of doing things that stimulates me to develop and publish plugins, but Github suddenly
+roused me from slumber <span class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnote_1" title="View footnote.">1</a>]</span>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_github_terminates_binary_service">Github terminates binary service</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In the past, it was the Github platform which offered a download area beside the source code management.
+An open source developer could upload additional files to the github code. Because it was so convenient,
+Elasticsearch was extended to automatic downloads of zip archives from github. But that is history now.
+I understand Github wants to focus on their strength, source code management.</p>
+</div>
+<div class="paragraph">
+<p>Instead, Elasticsearch&#8217;s plugin command was modified to handle downloads from
+<a href="http://download.elasticsearch.org" class="bare">http://download.elasticsearch.org</a> for the core plugins, and by using search frontends on "Maven Central"
+for zip archives <span class="footnote">[<a id="_footnoteref_2" class="footnote" href="#_footnote_2" title="View footnote.">2</a>]</span></p>
+</div>
+<div class="paragraph">
+<p>Using elasticsearch.org as a download platform could be an alternative to move my plugin business to.
+But I think this should be private to the core plugins developed by Elasticsearch.
+And, third-party code hosting needs some careful precautions.</p>
+</div>
+<div class="paragraph">
+<p>What about downloading from Maven? Creating zip archives on Maven Central is tedious because</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>you must sign all artifacts with a PGP signature</p>
+</li>
+<li>
+<p>you must own the domain of the Maven groupId</p>
+</li>
+<li>
+<p>Maven Central is not only Apache Software Foundation but includes also third-party
+approved repository
+hosting facilities I don&#8217;t want to use for my software distribution
+<span class="footnote">[<a id="_footnoteref_3" class="footnote" href="#_footnote_3" title="View footnote.">3</a>]</span></p>
+</li>
+<li>
+<p>my artifacts often depend on customized and improved builds and not on some broken
+artifacts on Maven Central</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>So, Maven would be a viable solution if Elasticsearch would embrace the full power of dependency resolution.
+I made up a demonstrator <span class="footnote">[<a id="_footnoteref_4" class="footnote" href="#_footnote_4" title="View footnote.">4</a>]</span>
+for an Elasticsearch version that can load "apps" from various repositories by configuration,
+just when a node starts up. But that&#8217;s still the future.</p>
+</div>
+<div class="paragraph">
+<p>So, what to do? For developement just for fun, maintaining a server for deploying plugins is quite expensive.
+The next would be to set up an HTTP server for download. More, I&#8217;d have to watch the server regularly for availablity,
+because I want a reliable service for the Elasticsarch  community. Short story, I&#8217;m out of time to do it in my spare time.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_bintray">Bintray</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>I was happy when I learned about Bintray last December. Bintray is a social platform for the storage and
+distribution of software binaries. The cloud-based platform is offered to open source developers free of charge.
+It helps in the process of making binaries publicly available. The company behind Bintray is JFrog, known
+from Artifactory, a competitor to Sonatype Nexus, and is well established in the business of providing Maven
+repository infrastructure.</p>
+</div>
+<div class="paragraph">
+<p>I was excited being invited to the non-public beta a few weeks before. Now after the public beta is open,
+Bintray was also mentioned in blogs <span class="footnote">[<a id="_footnoteref_5" class="footnote" href="#_footnote_5" title="View footnote.">5</a>]</span></p>
+</div>
+<div class="paragraph">
+<p>Bintray allows importing Github accounts, so it was instantly ready to setup for my github projects.
+It&#8217;s amazing to see these services working hand in hand! Adding a project 'elasticsearch-plugins' was a matter of seconds.</p>
+</div>
+<div class="paragraph">
+<p>The modification to the Elasticsearch plugin build process is small. I received an API key and added
+an entry in ~/.m2/settings.xml for the bintray API server. By adding the distribution information</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>     &lt;distributionManagement&gt;
+        &lt;repository&gt;
+            &lt;id&gt;bintray-jprante-elasticsearch-plugins-elasticsearch-river-jdbc&lt;/id&gt;
+            &lt;name&gt;jprante-elasticsearch-plugins-elasticsearch-river-jdbc&lt;/name&gt;
+            &lt;url&gt;https://api.bintray.com/maven/jprante/elasticsearch-plugins/elasticsearch-river-jdbc/release&lt;/url&gt;
+        &lt;/repository&gt;
+    &lt;/distributionManagement&gt;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>I could continue with a single command</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    mvn deploy</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>for uploading the Maven build artifacts to Bintray. After upload, you have to confirm the publication of the artifacts.
+By opening the home screen of Bintray, you can browse to the zip plugin and learn about the URL of the file.</p>
+</div>
+<div class="paragraph">
+<p>Next, I added the URL (having it shortened by an URL shortener service) to the plugin README, for example</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>    ./bin/plugin -url http://bit.ly/U75w1N -install river-jdbc</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and that&#8217;s it!</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="/images/bintray1.png" alt="bintray1">
+</div>
+</div>
+<div class="paragraph">
+<p>Direct downloads from your <a href="https://bintray.com/pkg/show/general/jprante/elasticsearch-plugins/elasticsearch-river-jdbc">homepage</a>
+at Bintray helps others to validate downloads with the help of a SHA1 checksum.</p>
+</div>
+<div class="paragraph">
+<p>And, Bintray comes with a Maven repository, so everybody can reuse my Elasticsearch plugin jar libraries for developing
+better plugins.</p>
+</div>
+<div class="paragraph">
+<p>Note, I did neither had to sign the artifacts with PGP keys nor did I qualified to be an owner for my Maven groupId.
+JFrog trusts me I&#8217;m doing the right thing and that is really compelling.</p>
+</div>
+<div class="paragraph">
+<p>All I have to do is conform to the terms of service <span class="footnote">[<a id="_footnoteref_6" class="footnote" href="#_footnote_6" title="View footnote.">6</a>]</span></p>
+</div>
+<div class="paragraph">
+<p>I&#8217;m not a lawyer and I don&#8217;t know if the terms are valid here in Germany, but I treat them with respect.
+There are pros and cons in the terms of service, but my hope is that Bintray will keep up free service for open source
+developers and will not discontinue or limit download space or availability in the near future.</p>
+</div>
+<div class="paragraph">
+<p>The next thing I want to explore is the great devops-incubator of Henri Gomez, for producing Elasticsearch RPMs.
+Bintray provides not only Maven repository but also RPM/yum. Great news because my favorite Linux is Red Hat Linux.</p>
+</div>
+<div class="paragraph">
+<p>So, thumbs up, I wish I had finally found the place where my binaries could finally settle, and solve my binary
+software distribution delivery challenge being an individual developer. As a bonus I get some nice statistics and
+comment feedback from Bintray.</p>
+</div>
+<div class="paragraph">
+<p>Having saved money I bought some AMD 64bit/8GB/SATA3/SSD/1g eth machines for Elasticsearch benchmarking at home
+(more neat stuff coming).</p>
+</div>
+</div>
+</div>
+<div id="footnotes">
+<hr>
+<div class="footnote" id="_footnote_1">
+<a href="#_footnoteref_1">1</a> <a href="https://github.com/blog/1302-goodbye-uploads" class="bare">https://github.com/blog/1302-goodbye-uploads</a>
+</div>
+<div class="footnote" id="_footnote_2">
+<a href="#_footnoteref_2">2</a> <a href="http://www.elasticsearch.org/blog/2012/12/17/new-download-service.html" class="bare">http://www.elasticsearch.org/blog/2012/12/17/new-download-service.html</a> The hardcoded URLs for looking for zip files in Maven repos are <a href="http://search.maven.org/remotecontent?filepath=" class="bare">http://search.maven.org/remotecontent?filepath=</a> and <a href="https://oss.sonatype.org/service/local/repositories/releases/content/" class="bare">https://oss.sonatype.org/service/local/repositories/releases/content/</a>
+</div>
+<div class="footnote" id="_footnote_3">
+<a href="#_footnoteref_3">3</a> <a href="http://maven.apache.org/guides/mini/guide-central-repository-upload.html" class="bare">http://maven.apache.org/guides/mini/guide-central-repository-upload.html</a>
+</div>
+<div class="footnote" id="_footnote_4">
+<a href="#_footnoteref_4">4</a> <a href="https://github.com/jprante/elasticsearch-apps" class="bare">https://github.com/jprante/elasticsearch-apps</a>
+</div>
+<div class="footnote" id="_footnote_5">
+<a href="#_footnoteref_5">5</a> <a href="http://www.drdobbs.com/cloud/need-a-new-binary-ask-a-developer-first/240146444" class="bare">http://www.drdobbs.com/cloud/need-a-new-binary-ask-a-developer-first/240146444</a>
+</div>
+<div class="footnote" id="_footnote_6">
+<a href="#_footnoteref_6">6</a> <a href="https://bintray.com/docs/terms_of_service.html" class="bare">https://bintray.com/docs/terms_of_service.html</a>
+</div>
+</div></p>
+
+    </div>
+
+	<hr />
+
+    <!-- I got these buttons from simplesharebuttons.com -->
+<div class="share-buttons share-buttons-post">
+
+<!-- Facebook -->
+<a href="http://www.facebook.com/sharer.php?u=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html" target="_blank"><img src="/images//simplesharebuttons/facebook.png" alt="Facebook" /></a>
+
+<!-- Twitter -->
+<a href="http://twitter.com/share?url=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html&text='Bintray for Elasticsearch plugins' by @xbib" target="_blank"><img src="/images/simplesharebuttons/twitter.png" alt="Twitter" /></a>
+
+<!-- Google+ -->
+<a href="https://plus.google.com/share?url=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html" target="_blank"><img src="/images/simplesharebuttons/google.png" alt="Google" /></a>
+
+<!-- Digg -->
+<a href="http://www.digg.com/submit?url=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html" target="_blank"><img src="/images/simplesharebuttons/diggit.png" alt="Digg" /></a>
+
+<!-- Reddit -->
+<a href="http://reddit.com/submit?url=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html&title=Bintray for Elasticsearch plugins" target="_blank"><img src="/images/simplesharebuttons/reddit.png" alt="Reddit" /></a>
+
+<!-- LinkedIn -->
+<a href="http://www.linkedin.com/shareArticle?mini=true&url=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html" target="_blank"><img src="/images/simplesharebuttons/linkedin.png" alt="LinkedIn" /></a>
+
+<!-- Pinterest -->
+<a href="javascript:void((function()%7Bvar%20e=document.createElement('script');e.setAttribute('type','text/javascript');e.setAttribute('charset','UTF-8');e.setAttribute('src','http://assets.pinterest.com/js/pinmarklet.js?r='+Math.random()*99999999);document.body.appendChild(e)%7D)());"><img src="/images/simplesharebuttons/pinterest.png" alt="Pinterest" /></a>
+
+<!-- StumbleUpon-->
+<a href="http://www.stumbleupon.com/submit?url=http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html&title=Bintray for Elasticsearch plugins" target="_blank"><img src="/images/simplesharebuttons/stumbleupon.png" alt="StumbleUpon" /></a>
+
+<!-- Email -->
+<a href="mailto:?Subject=Bintray for Elasticsearch plugins&Body=I%20saw%20this%20and%20thought%20of%20you!%20 http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html" target="_blank"><img src="/images/simplesharebuttons/email.png" alt="Email" /></a>
+
+</div>
+
+	<div id="disqus_thread"></div>
+
+	<script type="text/javascript">
+    var disqus_shortname = 'chaoscodingscomments'; // Required - Replace example with your forum shortname
+    var disqus_identifier = '2013/01/18/Bintray-for-Elasticsearch-plugins.html';
+    var disqus_title = "Bintray for Elasticsearch plugins";
+    var disqus_url = 'http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+	</script>
+
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+		</div>
+		<div id="push"></div>
+    </div>
+    
+    <div id="footer">
+      <div class="container">
+        <p class="muted credit">&copy; 2012-2015 Jörg Prante <a href="http://creativecommons.org/licenses/by/4.0/"><img src="/images/CC-BY_icon.svg.png"></a>
+        | Mixed with <a href="http://getbootstrap.com/">Bootstrap v3.3.1</a>
+        | Baked with <a href="http://jbake.org">JBake v2.3.2</a></p>
+      </div>
+    </div>
+    
+    <!-- javascript -->
+    <script src="../../../js/jquery-2.1.3.min.js"></script>
+    <script src="../../../js/bootstrap.min.js"></script>
+    <script src="../../../js/prettify.js"></script>
+
+    <script type="text/javascript">
+        var disqus_shortname = 'chaoscodingscomments'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+    </script>
+
+  </body>
+</html>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+    <url>
+    	<loc>http://jprante.github.ioabout.html</loc>
+    	<lastmod>2015-01-06</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.io2013/01/18/Bintray-for-Elasticsearch-plugins.html</loc>
+    	<lastmod>2013-01-13</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.io2012/11/28/Elasticsearch-Java-Virtual-Machine-settings-explained.html</loc>
+    	<lastmod>2012-11-28</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html</loc>
+    	<lastmod>2012-08-17</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/07/26/Mmap-with-Lucene.html</loc>
+    	<lastmod>2012-07-26</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/07/09/Indexing-MEDLINE-with Elasticsearch.html</loc>
+    	<lastmod>2012-07-09</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html</loc>
+    	<lastmod>2012-06-02</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/05/16/Multilingual-analysis-for-title-search.html</loc>
+    	<lastmod>2012-05-16</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html</loc>
+    	<lastmod>2012-05-11</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/04/03/Suggestions.html</loc>
+    	<lastmod>2012-04-03</lastmod>
+    </url>
+
+    <url>
+    	<loc>http://jprante.github.iolessons/2012/03/27/Writing-a-simple-plugin-for-Elasticsearch.html</loc>
+    	<lastmod>2012-03-27</lastmod>
+    </url>
+
+</urlset>
