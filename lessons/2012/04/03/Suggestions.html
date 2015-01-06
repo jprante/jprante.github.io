@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Search with suggestions in Elasticsearch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="keywords" content="">
+    <meta name="generator" content="JBake">
+
+    <!-- styles -->
+    <link href="../../../../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../../../../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../../../../css/asciidoctor.css" rel="stylesheet">
+    <link href="../../../../css/base.css" rel="stylesheet">
+    <link href="../../../../css/prettify.css" rel="stylesheet">
+
+    <!-- Fav and touch icons -->
+    <link rel="shortcut icon" href="../../../../favicon.ico">
+  </head>
+  <body onload="prettyPrint()">
+    <div id="wrap">
+   
+	
+		<!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../../../../">Jörg Prante</a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="../../../../index.html">Home</a></li>
+            <li><a href="../../../../about.html">About</a></li>
+            <li><a href="../../../../feed.xml">Subscribe</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="container">
+
+	<div class="post">
+
+	<div class="page-header">
+		<h1>Search with suggestions in Elasticsearch</h1>
+	</div>
+
+    <p class="post-info">
+		<i class="fa fa-calendar-o"></i>
+		&nbsp;03 April 2012
+		&nbsp;&nbsp;&nbsp;<i class="glyphicon glyphicon-bullhorn"></i>&nbsp;
+		<a href="lessons/2012/04/03/Suggestions.html#disqus_thread" data-disqus-identifier="lessons/2012/04/03/Suggestions.html">
+			0 Comments
+		</a>
+	</p>
+
+	<p><p>Searching with suggestions is a useful feature for every saerch solution.</p><p>Imagine a user enters saerch terms </p><p>Elasticsearch is a distributed, scalable, RESTful open-source search engine implementation based on Lucene. One of the most attractive features of Elasticsearch is the extensiblity by writing plugins. </p><p>Sometimes it is reported as a disadvantage that Elasticsearch is developed only by a single person, Shay Banon. But it should be emphasized that he equipped Elasticsearch with a convenient plugin mechanism for developers to encourage participation. The plugin mechanism allows other developers the extension of Elasticsearch with a lot of interesting features, such as adding analyzers, adding rivers, or adding connection mechanism to external libraries and systems, without the need to step into each and every detail of the Elasticsearch core.</p><p>In this writeup, I want to show how easy it is to make use of some of the most interesting features of Elasticsearch. The example explains</p>
+<ul>
+  <li>how to extend Elasticsearch with a RESTful command called <code>_termlist</code></li>
+  <li>how to distribute and collect basic data structures within the shard architecture</li>
+  <li>how to expose Lucene's IndexReader <code>terms()</code> method via the Elasticsearch API</li>
+</ul><p>The first step before we can get to the gory details is to step back and get an overview about the Elasticsearch philosophy.</p>
+<ul>
+  <li>We need to understand the API that Elasticsearch uses to receive requests and to send responses.</li>
+  <li>We need an action which distributes the job from a node to the shards.</li>
+  <li>And finally, we need the implementation of the real low-level work on the shard level.</li>
+</ul><p>The plan of attack:</p>
+<ul>
+  <li>Write a Plugin class, for attaching the plugin to the Elasticsearch core</li>
+  <li>Write a REST action class for API interaction</li>
+  <li>Write Request and Reponse classes for the node that receives the REST action</li>
+  <li>Write a Transport action that is dedicated to the process that works on shard level</li>
+</ul><h2>Source code</h2><p>The source code of the example plugin can be found at </p><p><a href="https://github.com/jprante/elasticsearch-index-termlist">https://github.com/jprante/elasticsearch-index-termlist</a></p><h2>Writing a Plugin class</h2><p>For the example plugin, we choose the name <code>termlist</code>. The class extends <code>AbstractPlugin</code>. Each plugin may come with modules. Elasticsearch is divided into logical parts which are called modules. For our simple plugin, we need to hook a <code>RestModule</code> and an <code>ActionModule</code> into the Elasticsearch core. By using injection, the Elasticsearch core invokes the <code>onModule()</code> method of our plugin and sets up the necessary structures in the background for us. All we have to do is</p>
+<pre><code>public void onModule(RestModule module) {
+    module.addRestAction(RestTermlistAction.class);
+}
+
+public void onModule(ActionModule module) {
+    module.registerAction(TermlistAction.INSTANCE, TransportTermlistAction.class);        
+}
+</code></pre><p>So we have declared three Action classes <code>RestTermlistAction</code>, <code>TermlistAction</code>, and <code>TransportTermlistAction</code> that we need to implement by further steps.</p><h2>Writing a REST Action class</h2><p>In the action class <code>RestTermlistAction</code>, we assign the REST URI info (path patterns) to executions, and the main request/response method <code>handleRequest</code> that is evaluating the query parameters and writing the JSON response.</p><p>Here, we just need to fetch the values out of the URI info, transfer it to a global request <code>TermlistRequest</code>, and invoke a client that will produce a <code>TermListResponse</code>. Elasticsearch offers a <code>RestXContentBuilder</code> API for easy JSON wrapping of our response data. The term list we want to generate is an array of strings, which is just built by writing the line</p>
+<pre><code>builder.array(&quot;terms&quot;, response.getTermlist().toArray());
+</code></pre><p>When failures occured, we use Elasticsearch <code>XContentThrowableRestResponse</code> to create a failure response. </p><h2>Writing a Request and Reponse class</h2><p>The <code>termlist</code> plugin should work on the whole cluster or on Elasticsearch indexes. This is done by formulating the request <code>TermlistRequest</code> as an extension of a <code>BroadcastOperationRequest</code>. This kind of request will be distributed automagically to all the shards that participate in storing the index (or indexes) requested. If no indexes are given in the request, the whole cluster is addressed.</p><p>We add a custom parameter <code>field</code> beside the index parameter, so that we can expose the IndexReader of Lucene filtered by a given field name. Confining term lists to the terms of a single field is a good idea, for instance if there are a lot of unique terms in the index.</p><p>Elasticsearch requires us make the request and the response streamable. Streams are used by the network transport layer to serialize the request to the nodes. All we need to do is writing a few code lines for the <code>field</code> parameter in <code>readFrom(StreamInput in)</code> and <code>writeTo(StreamOutput out)</code>. This mechanism is responsible for both submitting and receving the parameters, from node to node.</p><p>The <code>TermlistResponse</code> is going the opposite direction after the work has done, from the participating shards to the node that will produce the API response. At instantiation of the class, we know the numbers of total shards, successful shards, and failed shards, and a set of terms, the termlist for the <code>RestXContentBuilder</code>. The response must be streamable just like the request class.</p><h2>Writing the Action class</h2><p>The action class <code>TermlistAction</code> is a glue code that clamps together <code>TermlistRequest</code>, <code>TermlistResponse</code>, and a <code>TermlistRequestBuilder</code> into a logical unit. All we need to do is taking care of the generics of the class and filling out the instantiation helpers <code>newRequestBuilder()</code> and <code>newResponse()</code>. From now on, the Elasticsearch internal client knows how to construct the request and response structures for our action. But up to this point, no shard logic is involved.</p><h2>Writing the Transport Action class</h2><p>The shard level logic is done by <code>TransportItemlistAction</code>, a class extending <code>TransportBroadcastOperationAction</code>. This action class holds the real execution code of our <code>_termlist</code> command. Here, we can inject an <code>IndicesServer</code>, which is the magic Elasticsearch doorway to the Lucene IndexReader internals. In the <code>shardOperation</code> method, we can extract an <code>Engine.Searcher</code> object for our current shard ID, from which we obtain the Lucene <code>IndexReader</code> terms in a loop. </p><p>After collecting the terms into a string set, we send them back in a <code>ShardTermlistResponse</code>. <code>ShardTermlistRequest</code> and <code>ShardTermlistResponse</code> are sibling classes to <code>TermlistRequest</code> and <code>TermlistResponse</code> on the shard level, extending <code>BroadcastShardOperationRequest</code> and <code>BroadcastShardOperationResponse</code> respectively.</p><p>Besides that, we can control threading and some other shard topics on this level. So it is possible to address only a subset of shards, the primary shards for example, to save resource usage. </p><h2>Summary</h2><p>We have learned how to write a simple Elasticsearch plugin by understanding that such an extension is separated into three actions, one for REST, one for the node level to orchestrate the shards, and one for the shard level to perform the low-level work. Each level is connected by a pair of Request/Response classes. While the Request/Response classes can stream data, the REST action builds the response in memory with a RestXContentBuilder.</p><p>By extending the Request classes, we learned how we can also pass additional parameters we need for our operation. By extending the Response classes, we learned how to pass our own result structure back to the REST API surface.</p><p>We are now able to</p>
+<ul>
+  <li>write Elasticsearch basic plugin code</li>
+  <li>extend the REST API of Elasticsearch by a custom command</li>
+  <li>expose Lucene IndexReader to the Elasticsearch API</li>
+</ul><p>Of course, there is a lot more that Elasticsearch can offer by using the plugin architecture. In this text, we could only scratch the surface. Have fun exploring Elasticsearch for more exciting opportunities!</p></p>
+
+    </div>
+
+	<hr />
+
+    <!-- I got these buttons from simplesharebuttons.com -->
+<div class="share-buttons share-buttons-post">
+
+<!-- Facebook -->
+<a href="http://www.facebook.com/sharer.php?u=http://jprante.github.iolessons/2012/04/03/Suggestions.html" target="_blank"><img src="/images//simplesharebuttons/facebook.png" alt="Facebook" /></a>
+
+<!-- Twitter -->
+<a href="http://twitter.com/share?url=http://jprante.github.iolessons/2012/04/03/Suggestions.html&text='Search with suggestions in Elasticsearch' by @xbib" target="_blank"><img src="/images/simplesharebuttons/twitter.png" alt="Twitter" /></a>
+
+<!-- Google+ -->
+<a href="https://plus.google.com/share?url=http://jprante.github.iolessons/2012/04/03/Suggestions.html" target="_blank"><img src="/images/simplesharebuttons/google.png" alt="Google" /></a>
+
+<!-- Digg -->
+<a href="http://www.digg.com/submit?url=http://jprante.github.iolessons/2012/04/03/Suggestions.html" target="_blank"><img src="/images/simplesharebuttons/diggit.png" alt="Digg" /></a>
+
+<!-- Reddit -->
+<a href="http://reddit.com/submit?url=http://jprante.github.iolessons/2012/04/03/Suggestions.html&title=Search with suggestions in Elasticsearch" target="_blank"><img src="/images/simplesharebuttons/reddit.png" alt="Reddit" /></a>
+
+<!-- LinkedIn -->
+<a href="http://www.linkedin.com/shareArticle?mini=true&url=http://jprante.github.iolessons/2012/04/03/Suggestions.html" target="_blank"><img src="/images/simplesharebuttons/linkedin.png" alt="LinkedIn" /></a>
+
+<!-- Pinterest -->
+<a href="javascript:void((function()%7Bvar%20e=document.createElement('script');e.setAttribute('type','text/javascript');e.setAttribute('charset','UTF-8');e.setAttribute('src','http://assets.pinterest.com/js/pinmarklet.js?r='+Math.random()*99999999);document.body.appendChild(e)%7D)());"><img src="/images/simplesharebuttons/pinterest.png" alt="Pinterest" /></a>
+
+<!-- StumbleUpon-->
+<a href="http://www.stumbleupon.com/submit?url=http://jprante.github.iolessons/2012/04/03/Suggestions.html&title=Search with suggestions in Elasticsearch" target="_blank"><img src="/images/simplesharebuttons/stumbleupon.png" alt="StumbleUpon" /></a>
+
+<!-- Email -->
+<a href="mailto:?Subject=Search with suggestions in Elasticsearch&Body=I%20saw%20this%20and%20thought%20of%20you!%20 http://jprante.github.iolessons/2012/04/03/Suggestions.html" target="_blank"><img src="/images/simplesharebuttons/email.png" alt="Email" /></a>
+
+</div>
+
+	<div id="disqus_thread"></div>
+
+	<script type="text/javascript">
+    var disqus_shortname = 'chaoscodingscomments'; // Required - Replace example with your forum shortname
+    var disqus_identifier = 'lessons/2012/04/03/Suggestions.html';
+    var disqus_title = "Search with suggestions in Elasticsearch";
+    var disqus_url = 'http://jprante.github.iolessons/2012/04/03/Suggestions.html';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+	</script>
+
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+		</div>
+		<div id="push"></div>
+    </div>
+    
+    <div id="footer">
+      <div class="container">
+        <p class="muted credit">&copy; 2012-2015 Jörg Prante | Mixed with <a href="http://getbootstrap.com/">Bootstrap v3.3.1</a> | Baked with <a href="http://jbake.org">JBake v2.3.2</a></p>
+      </div>
+    </div>
+    
+    <!-- javascript -->
+    <script src="../../../../js/jquery-2.1.3.min.js"></script>
+    <script src="../../../../js/bootstrap.min.js"></script>
+    <script src="../../../../js/prettify.js"></script>
+
+    <script type="text/javascript">
+        var disqus_shortname = 'chaoscodingscomments'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+    </script>
+
+  </body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ISBN search with Elasticsearch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="keywords" content="">
+    <meta name="generator" content="JBake">
+
+    <!-- styles -->
+    <link href="../../../../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../../../../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../../../../css/asciidoctor.css" rel="stylesheet">
+    <link href="../../../../css/base.css" rel="stylesheet">
+    <link href="../../../../css/prettify.css" rel="stylesheet">
+
+    <!-- Fav and touch icons -->
+    <link rel="shortcut icon" href="../../../../favicon.ico">
+  </head>
+  <body onload="prettyPrint()">
+    <div id="wrap">
+   
+	
+		<!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../../../../">Jörg Prante</a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="../../../../index.html">Home</a></li>
+            <li><a href="../../../../about.html">About</a></li>
+            <li><a href="../../../../feed.xml">Subscribe</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="container">
+
+	<div class="post">
+
+	<div class="page-header">
+		<h1>ISBN search with Elasticsearch</h1>
+	</div>
+
+    <p class="post-info">
+		<i class="fa fa-calendar-o"></i>
+		&nbsp;11 Mai 2012
+		&nbsp;&nbsp;&nbsp;<i class="glyphicon glyphicon-bullhorn"></i>&nbsp;
+		<a href="lessons/2012/05/11/ISBN-search-with-Elasticsearch.html#disqus_thread" data-disqus-identifier="lessons/2012/05/11/ISBN-search-with-Elasticsearch.html">
+			0 Comments
+		</a>
+	</p>
+
+	<p><h1>The challenge: ISBN search</h1><p>As most of you know, International Standard Book Numbers (ISBN) come in two representations.<br/>First, there is a legacy form, a short form with ten characters in length.<br/>Those ISBNs appeared exclusively before 2007 and are still very common to most of us.<br/>The fact is that ISBNs were expanded to thirteen characters, since the possible numbers<br/>given by the ISBN specification tended to run out of space. As a matter of fact, each old-style ISBN is now convertible to the new form, and all book merchands, the printing industries, and libraries were advised to only use the new ISBN form. The only ones who can not be advised are the public, that is you and me, who like to search for whatever ISBN comes into the mind.</p><p>Anyway, there is a challenge in searching for ISBNs just because of that. There are at least two forms of the same ISBN (some of you who discover printable ISBN forms on the book covers would say there are even more) that need to be searched in parallel. Now, if you carefully store each ISBN form in separate fields, you need to reformulate your search engine queries, guiding the search to all of the various ISBN fields you crafted tediously for your unique best-of-breed book search engine as your users come along.</p><p>The thing is, reformulating queries just because of different representations of the same thing is not very clever. Such queries can soon become complex and take search time. Boolean search operations are not very welcome in the eyes of performance knights - you know, they come at a price. And, you need to teach your clients about what fields to use when. This all will take time and energy.</p><p>But how to avoid boolean query management, like or'ing all of the fields you want the user to look into? One of the obvious ideas is to combine the ISBN forms into a single field. </p><p>You might reply, well, good idea, but combining the forms into a single field is not feasible, because this hinders from searching for each form separately. You won't be able to deduce from a user's input what kind of ISBN form was entered. And it's not hard to imagine a requirement where the user alone is up to decide whether to search for a legacy or new ISBN form. Or, you have an EAN barcode device connected to your search engine, that needs exact evidence about the fact whether an EAN (which is for books equivalent to ISBN-13) exists in the inventory or not.</p><p>Now you could resign and go back into your dark and gloomy office, hide from the sun, lock in for months and write nasty and slow code scattered with boolean operations for searching ISBNs. Thinking about waiting for your clients coming by with one legitimate change request after another because suddenly they all turned into ISBN/ISSN/ISMN experts won't set you into a state of much relief. Or, you could start over and try Elasticsearch and set up a smart configuration that is able to exactly do what all the people will want from you.</p><h2>Smart Elasticsearch configuration for ISBN objects</h2><p>Elasticsearch JSON offers hierarchical organized properties for your fields in the index, so they can be seen as a structure in an object-like manner. Under such a structure, you can sum up child fields that shall belong to a common parent field. </p><p>Your first decision is to put all the ISBN forms under a parent called <code>identifier</code>. Now, you can index many identifiers in a row, just by using a JSON array. </p><p>Your second decision is adding children to the <code>identifier</code> field, named <code>isbn</code>, <code>ean</code>, and <code>isbnprintable</code>. There can be even more children in the future. Later, you can read the Elasticsearch JSON source that is sent back as a response to your search and extract the information about which forms of ISBN are connected to each other. Yes, you will need to do that analysis sooner or later, because of a very simple reason: some books might have more than one ISBN.</p><p>Let us restrict ourselves to just one ISBN for simplicity. We assume an ISBN with three different forms. For example, let's take ISBN 1-932394-28-1. This form is printed on the book you just have in your hands. From this ISBN form, you derive the form 1932394281 (some call it a normalized form, but ISBNs are not really normalized like this) and, because you are a professional, the form 9781932394283, by recalculating the checksum for ISBN-13. The book was published back in 2005, so the publisher did not know about EAN (or ISBN-13), but you remember you were obliged to use this additional form in current applications, too.</p><p>So you have designed your ISBN JSON structure for the Elasticsearch document. Let's see:</p>
+<pre><code>{
+    &quot;identifier&quot; : {
+        &quot;isbn&quot; : &quot;1932394281&quot;,
+        &quot;ean&quot; : &quot;9781932394283&quot;,
+        &quot;isbnprintable&quot; : &quot;1-932394-28-1&quot;
+    }
+}
+</code></pre><h2>Redirection with <code>index_name</code></h2><p>Elasticsearch has two more smart features in the mappings for an index. One is called <em>index_name</em> and the other one is <em>multi_field</em>. By combining these two features we are able to accomplish our mission.</p><p>With <em>index_name</em>, <code>ean</code> values can be redirected to the same index as <code>isbn</code>. But, by setting <code>multi_field</code>, the EAN is still kept in a separate index that we call <code>eanonly</code>. Finally, we add a mapping for <code>isbnprintable</code> for the third form of representation.</p><p>Just have a look at the ISBN demo mapping:</p>
+<pre><code>{
+   &quot;mappings&quot; : {
+      &quot;_default_&quot; : {
+         &quot;_source&quot; : {
+            &quot;enabled&quot; : true
+         },
+         &quot;_all&quot; : {
+            &quot;analyzer&quot; : &quot;default&quot;,
+            &quot;enabled&quot; : true
+         },
+         &quot;properties&quot; : {
+            &quot;identifier&quot; : {
+               &quot;dynamic&quot; : false,
+               &quot;properties&quot; : {
+                  &quot;isbn&quot; : {
+                     &quot;type&quot; : &quot;string&quot;,
+                     &quot;include_in_all&quot; : true
+                  },
+                  &quot;ean&quot; : {
+                     &quot;type&quot; : &quot;multi_field&quot;,
+                     &quot;fields&quot; : {
+                         &quot;ean&quot; : {
+                             &quot;index_name&quot; : &quot;isbn&quot;,
+                             &quot;type&quot; : &quot;string&quot;
+                         },
+                         &quot;eanonly&quot; : {
+                             &quot;type&quot; : &quot;string&quot;
+                         }
+                     }
+                  },
+                  &quot;isbnprintable&quot; : {
+                     &quot;index_name&quot; : &quot;isbn&quot;,
+                     &quot;index&quot; : &quot;not_analyzed&quot;,
+                     &quot;type&quot; : &quot;string&quot;
+                  }
+               }
+            }
+         }
+      }
+   }
+}
+</code></pre><h2>Proving the ISBN search</h2><p>Our first test case are users who submit queries and do not like to search in a special ISBN field. They just use a single search field, pasting ISBNs in there, and send it off.</p>
+<pre><code>{
+    &quot;query&quot; : {
+         &quot;text&quot; : {
+             &quot;_all&quot; : &quot;1932394281&quot;
+         }
+    }
+}
+
+{
+    &quot;query&quot; : {
+         &quot;text&quot; : {
+             &quot;_all&quot; : &quot;9781932394283&quot;
+         }
+    }
+}
+</code></pre><p>Because of the nature of the <code>include_in_all</code> of the <code>isbn</code> field, both ISBN and EAN are included into the <code>_all</code> field. We did the first case.</p><p>Now, let's satisfy our next users who prefer entering ISBNs into a special ISBN field, regardless of what form. We send their searches into the field <code>identifier.isbn</code>.</p>
+<pre><code>{
+    &quot;query&quot; : {
+         &quot;text&quot; : {
+             &quot;identifier.isbn&quot; : &quot;1932394281&quot;
+         }
+    }
+}
+
+{
+    &quot;query&quot; : {
+         &quot;text&quot; : {
+             &quot;identifier.isbn&quot; : &quot;9781932394283&quot;
+         }
+    }
+}
+</code></pre><p>Because the <code>ean</code> field is redirected to the <code>isbn</code> field, this works well.</p><p>And finally, let's ensure that our barcode scan devices get only hits on EANs in our book inventory.</p>
+<pre><code>{
+    &quot;query&quot; : {
+         &quot;text&quot; : {
+             &quot;identifier.ean.eanonly&quot; : &quot;9781932394283&quot;
+         }
+    }
+}
+</code></pre><p>This will not return a hit, as expected:</p>
+<pre><code>{
+    &quot;query&quot; : {
+         &quot;text&quot; : {
+             &quot;identifier.ean.eanonly&quot; : &quot;1932394281&quot;
+         }
+    }
+}
+</code></pre><p>We left an example with <code>isbnprintable</code> search as an exercise.</p><h1>Summary</h1><p>With Elasticsearch, challenges like ISBN search, where multiple representations of the same thing need to get indexed nearby, can be tackled in an elegant and powerful way. You learned </p>
+<ul>
+  <li>that you can design an object-like structure, where you can later easily deduce what forms are connected to a common parent</li>
+</ul><p>Then you found out that </p>
+<ul>
+  <li>with a suitable Elasticsearch mapping, you can redirect field values to other indexes so they get appended to each other</li>
+</ul><p>And finally</p>
+<ul>
+  <li>with the <code>multi_field</code> property, you realized that you can even keep such values and put them into a separate index to avoid queries returning false hits.</li>
+</ul><p>You can find a shell-script curl-based executable of the above example <a href="https://gist.github.com/2662060">here</a>.</p><p>Now, happy book searching with Elasticsearch!</p></p>
+
+    </div>
+
+	<hr />
+
+    <!-- I got these buttons from simplesharebuttons.com -->
+<div class="share-buttons share-buttons-post">
+
+<!-- Facebook -->
+<a href="http://www.facebook.com/sharer.php?u=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html" target="_blank"><img src="/images//simplesharebuttons/facebook.png" alt="Facebook" /></a>
+
+<!-- Twitter -->
+<a href="http://twitter.com/share?url=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html&text='ISBN search with Elasticsearch' by @xbib" target="_blank"><img src="/images/simplesharebuttons/twitter.png" alt="Twitter" /></a>
+
+<!-- Google+ -->
+<a href="https://plus.google.com/share?url=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/google.png" alt="Google" /></a>
+
+<!-- Digg -->
+<a href="http://www.digg.com/submit?url=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/diggit.png" alt="Digg" /></a>
+
+<!-- Reddit -->
+<a href="http://reddit.com/submit?url=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html&title=ISBN search with Elasticsearch" target="_blank"><img src="/images/simplesharebuttons/reddit.png" alt="Reddit" /></a>
+
+<!-- LinkedIn -->
+<a href="http://www.linkedin.com/shareArticle?mini=true&url=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/linkedin.png" alt="LinkedIn" /></a>
+
+<!-- Pinterest -->
+<a href="javascript:void((function()%7Bvar%20e=document.createElement('script');e.setAttribute('type','text/javascript');e.setAttribute('charset','UTF-8');e.setAttribute('src','http://assets.pinterest.com/js/pinmarklet.js?r='+Math.random()*99999999);document.body.appendChild(e)%7D)());"><img src="/images/simplesharebuttons/pinterest.png" alt="Pinterest" /></a>
+
+<!-- StumbleUpon-->
+<a href="http://www.stumbleupon.com/submit?url=http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html&title=ISBN search with Elasticsearch" target="_blank"><img src="/images/simplesharebuttons/stumbleupon.png" alt="StumbleUpon" /></a>
+
+<!-- Email -->
+<a href="mailto:?Subject=ISBN search with Elasticsearch&Body=I%20saw%20this%20and%20thought%20of%20you!%20 http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/email.png" alt="Email" /></a>
+
+</div>
+
+	<div id="disqus_thread"></div>
+
+	<script type="text/javascript">
+    var disqus_shortname = 'chaoscodingscomments'; // Required - Replace example with your forum shortname
+    var disqus_identifier = 'lessons/2012/05/11/ISBN-search-with-Elasticsearch.html';
+    var disqus_title = "ISBN search with Elasticsearch";
+    var disqus_url = 'http://jprante.github.iolessons/2012/05/11/ISBN-search-with-Elasticsearch.html';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+	</script>
+
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+		</div>
+		<div id="push"></div>
+    </div>
+    
+    <div id="footer">
+      <div class="container">
+        <p class="muted credit">&copy; 2012-2015 Jörg Prante | Mixed with <a href="http://getbootstrap.com/">Bootstrap v3.3.1</a> | Baked with <a href="http://jbake.org">JBake v2.3.2</a></p>
+      </div>
+    </div>
+    
+    <!-- javascript -->
+    <script src="../../../../js/jquery-2.1.3.min.js"></script>
+    <script src="../../../../js/bootstrap.min.js"></script>
+    <script src="../../../../js/prettify.js"></script>
+
+    <script type="text/javascript">
+        var disqus_shortname = 'chaoscodingscomments'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+    </script>
+
+  </body>
+</html>

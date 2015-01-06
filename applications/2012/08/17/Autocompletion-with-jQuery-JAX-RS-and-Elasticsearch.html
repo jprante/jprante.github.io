@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Autocompletion with jQuery, JAX-RS and Elasticsearch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="keywords" content="">
+    <meta name="generator" content="JBake">
+
+    <!-- styles -->
+    <link href="../../../../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../../../../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../../../../css/asciidoctor.css" rel="stylesheet">
+    <link href="../../../../css/base.css" rel="stylesheet">
+    <link href="../../../../css/prettify.css" rel="stylesheet">
+
+    <!-- Fav and touch icons -->
+    <link rel="shortcut icon" href="../../../../favicon.ico">
+  </head>
+  <body onload="prettyPrint()">
+    <div id="wrap">
+   
+	
+		<!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../../../../">Jörg Prante</a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="../../../../index.html">Home</a></li>
+            <li><a href="../../../../about.html">About</a></li>
+            <li><a href="../../../../feed.xml">Subscribe</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="container">
+
+	<div class="post">
+
+	<div class="page-header">
+		<h1>Autocompletion with jQuery, JAX-RS and Elasticsearch</h1>
+	</div>
+
+    <p class="post-info">
+		<i class="fa fa-calendar-o"></i>
+		&nbsp;17 August 2012
+		&nbsp;&nbsp;&nbsp;<i class="glyphicon glyphicon-bullhorn"></i>&nbsp;
+		<a href="applications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html#disqus_thread" data-disqus-identifier="applications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html">
+			0 Comments
+		</a>
+	</p>
+
+	<p><p><img src="/images/autocomplete.jpeg" alt="Typing""/></p><p><em><a href="http://www.flickr.com/photos/atomicshark/144630706/">http://www.flickr.com/photos/atomicshark/144630706/</a></em></p><h2>What is Autocompletion?</h2><p>Autocompletion is the provision of words that are frequently used in response to a user's keystrokes. It was first invented to assist people with physical disabilities to improve their typing speed. [1]</p><p>Autocomplete or word completion works so that when the writer writes the first letter or letters of a word, a program predicts one or more possible words as choices.</p><p>In this text, we will show how to implement a solution for autocompletion, a search frontend for Elasticsearch. It consists of a jQuery page, presenting a search form to the user, submitting query terms to a gateway service, and receiving JSON results for the autocompleted word list.</p><p>For our use case, we build a library catalog title autocompletion, where 80% of user queries are searches for title keywords. While typing, users should immediately got aware of titles matching their requests, and Elasticsearch should do the hard work to filter the relevant documents in near realtime.</p><h2>The n-gram method</h2><p>How will the autocompletion work? One approach is changing the normal indexing of title words. A well-known method is using n-grams.</p><p>In the fields of computational linguistics, an n-gram is a contiguous sequence of n items from a text sequence. N-gram matching implementation is simple and provides good performance. The algorithm is based on the principle: if a word A matches a word B containing some errors, they will most likely have at least one common substring of length 'n'.</p><p>At indexing step, the word is partitioned into n-grams, the word is added to lists that correspond each of these n-grams. At search time, the query is also partitioned into n-grams, and for each of them corresponding lists are scanned using the metric.</p><p>One observation is that users of a library catalog enter characters from the front in the order the characters are written in the title word, so an effective improvement of n-grams is introducing <em>edged</em> n-grams, where the word n-grams are always starting from one of the word edges, here, the front.</p><h2>The Elasticsearch setting</h2><p>Note, we use a multilingual library catalog setup (multilingual setup is not the focus now so details are not discussed now). We add edge n-gram analysis by a filter we call <strong>edgengramfilter</strong>. It builds n-grams from the word front, with a minimum length of 2 characters and a maximum of 16 characters.</p>
+<pre><code>&quot;settings&quot; : {
+  &quot;index&quot; : {
+     &quot;analysis&quot; : {
+        &quot;filter&quot; : {
+           &quot;germansnow&quot; : {
+              &quot;type&quot; : &quot;snowball&quot;,
+              &quot;language&quot; : &quot;German2&quot;
+           },
+           &quot;edgengramfilter&quot; : {
+               &quot;type&quot; : &quot;edgeNgram&quot;,
+               &quot;side&quot; : &quot;front&quot;,
+               &quot;min_gram&quot; : 2,
+               &quot;max_gram&quot; : 16
+           } 
+        },
+        &quot;analyzer&quot; : {
+           &quot;german&quot; : {
+              &quot;type&quot; : &quot;custom&quot;,
+              &quot;tokenizer&quot; : &quot;lowercase&quot;,
+              &quot;filter&quot; : &quot;germansnow&quot;                  
+           },
+           &quot;icu&quot; : {
+              &quot;type&quot; : &quot;custom&quot;,
+              &quot;tokenizer&quot; : &quot;icu_tokenizer&quot;,
+              &quot;filter&quot; :  &quot;icu_folding&quot;
+
+           },
+           &quot;default&quot; : {
+              &quot;sub_analyzers&quot; : [
+                 &quot;german&quot;,
+                 &quot;icu&quot;,
+                 &quot;standard&quot;
+              ],                  
+              &quot;type&quot; : &quot;combo&quot;
+           },
+           &quot;icu_autocomplete&quot; : {
+              &quot;type&quot; : &quot;custom&quot;,
+              &quot;tokenizer&quot; : &quot;icu_tokenizer&quot;,
+              &quot;filter&quot; : [ &quot;icu_folding&quot;, &quot;edgengramfilter&quot; ]
+           },
+           &quot;autocomplete&quot; : {
+              &quot;sub_analyzers&quot; : [
+                 &quot;german&quot;,
+                 &quot;icu_autocomplete&quot;,
+                 &quot;standard&quot;
+              ],                  
+              &quot;type&quot; : &quot;combo&quot;
+           }
+        }
+     }
+  }
+}
+</code></pre><h2>Checking the edge n-gram creation</h2><p>With the analyzer API, we can observe the edge n-gram filter if it works like we want to. Note the maximum length of the grams should be relatively small. The number of extra words created is significant for the expected index size growth.</p>
+<pre><code>curl -XGET &#39;localhost:9200/hbztest//_analyze?pretty&amp;analyzer=icu_autocomplete&amp;text=wissen&#39;
+{
+  &quot;tokens&quot; : [ {
+    &quot;token&quot; : &quot;wi&quot;,
+    &quot;start_offset&quot; : 0,
+    &quot;end_offset&quot; : 2,
+    &quot;type&quot; : &quot;word&quot;,
+    &quot;position&quot; : 1
+  }, {
+    &quot;token&quot; : &quot;wis&quot;,
+    &quot;start_offset&quot; : 0,
+    &quot;end_offset&quot; : 3,
+    &quot;type&quot; : &quot;word&quot;,
+    &quot;position&quot; : 2
+  }, {
+    &quot;token&quot; : &quot;wiss&quot;,
+    &quot;start_offset&quot; : 0,
+    &quot;end_offset&quot; : 4,
+    &quot;type&quot; : &quot;word&quot;,
+    &quot;position&quot; : 3
+  }, {
+    &quot;token&quot; : &quot;wisse&quot;,
+    &quot;start_offset&quot; : 0,
+    &quot;end_offset&quot; : 5,
+    &quot;type&quot; : &quot;word&quot;,
+    &quot;position&quot; : 4
+  }, {
+    &quot;token&quot; : &quot;wissen&quot;,
+    &quot;start_offset&quot; : 0,
+    &quot;end_offset&quot; : 6,
+    &quot;type&quot; : &quot;word&quot;,
+    &quot;position&quot; : 5
+  } ]
+}
+</code></pre><p>Now let's imagine we need to index a library catalog, where the title information is additionally directed to an autocompletion field <strong>xbib:titleAutocomplete</strong>, for example</p>
+<pre><code>&quot;xbib:title&quot; : {
+   &quot;type&quot; : &quot;string&quot;,
+   &quot;type&quot; : &quot;multi_field&quot;,
+   &quot;fields&quot; : {
+         &quot;xbib:title&quot;: {
+             &quot;type&quot; : &quot;string&quot;,
+             &quot;index_name&quot; : &quot;dc:title&quot;
+         },
+         &quot;xbib:titleAutocomplete&quot;: {
+             &quot;type&quot; : &quot;string&quot;,
+             &quot;index_analyzer&quot; : &quot;icu_autocomplete&quot;,
+             &quot;include_in_all&quot; : false
+         }
+    }
+}
+</code></pre><p>You don't need to touch your indexing code, just adding the field into the mapping is all Elasticsearch requires.</p><h2>An Autocompleter JAX-RS gateway</h2><p>A JAX-RS gateway is used to separate the jQuery and web design folks from direct access to the Elasticsearch cluster. Hence, you set up a middleware that is proxying valid autocomplete requests to the Elasticsearch backend that may be securely locked away in the darkest corners of your hosting facility.</p><p>In this working JAX-RS code, you can see how JSON data from an Elasticsearch query result can be generated directly into an JAX-RS streaming outputstream.<br/>The hard part of the work is encapsulated in service classes ElasticsearchSession and QueryResultAction which are not the focus of this article.</p><p>The autocompletion requests are formed by three input parameters: <strong>field</strong> is the field to be queried in the Elasticsearch index, <strong>term</strong> is the typed input of the user, and <strong>resultfields</strong> are the fields that Elasticsearch should return. </p>
+<pre><code>package jaxrs;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.List;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.FormParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
+import javax.ws.rs.core.UriInfo;
+import javax.ws.rs.ext.ContextResolver;
+import org.xbib.elasticsearch.ElasticsearchSession;
+import org.xbib.elasticsearch.QueryResultAction;
+import org.xbib.logging.Logger;
+import org.xbib.logging.LoggerFactory;
+
+/**
+ * Elasticsearch autocomplete query bridge
+ */
+@Path(&quot;/autocomplete&quot;)
+public class Autocompleter {
+
+    @Context
+    ContextResolver&lt;ElasticsearchSession&gt; resolver;
+    private static final Logger logger = LoggerFactory.getLogger(&quot;es.query.autocomplete&quot;);
+    private final QueryResultAction action = new QueryResultAction();
+
+    @POST
+    @Path(&quot;/{index}&quot;)
+    @Produces(MediaType.APPLICATION_JSON)
+    public StreamingOutput createIndexPage(
+            @Context HttpServletResponse response,
+            @Context UriInfo uriInfo,
+            @FormParam(&quot;field&quot;) final String field,
+            @FormParam(&quot;term&quot;) final String term,
+            @FormParam(&quot;resultfields[]&quot;) final List&lt;String&gt; resultfields,            
+            @FormParam(&quot;filter&quot;) final String filter,
+            @FormParam(&quot;from&quot;) final int from,
+            @FormParam(&quot;size&quot;) final int size)
+            throws Exception {
+        return query(response, uriInfo, field, term, resultfields, filter, from, size);
+    }
+
+    @POST
+    @Path(&quot;/{index}/{type}&quot;)
+    @Produces(MediaType.APPLICATION_JSON)
+    public StreamingOutput createIndexTypePage(
+            @Context HttpServletResponse response,
+            @Context UriInfo uriInfo,
+            @FormParam(&quot;field&quot;) final String field,
+            @FormParam(&quot;term&quot;) final String term,
+            @FormParam(&quot;resultfields[]&quot;) final List&lt;String&gt; resultfields,            
+            @FormParam(&quot;filter&quot;) final String filter,
+            @FormParam(&quot;from&quot;) final int from,
+            @FormParam(&quot;size&quot;) final int size)
+            throws Exception {
+        return query(response, uriInfo, field, term, resultfields, filter, from, size);
+    }
+
+    private StreamingOutput query(
+            final HttpServletResponse response,
+            final UriInfo uriInfo,
+            final String field,
+            final String term,
+            final List&lt;String&gt; resultfields,
+            final String filter,
+            final int from,
+            final int size) throws IOException {
+        MultivaluedMap&lt;String, String&gt; pathParams = uriInfo.getPathParameters();
+        final String index = pathParams.getFirst(&quot;index&quot;);
+        final String type = pathParams.getFirst(&quot;type&quot;);
+        action.setQueryLogger(logger);
+        action.setSession(resolver.getContext(ElasticsearchSession.class));
+        action.setIndex(index);
+        if (type != null) {
+            action.setType(type);
+        }
+        action.setFrom(from);
+        action.setSize(size);
+        return new StreamingOutput() {
+            @Override
+            public void write(OutputStream output) throws IOException, WebApplicationException {
+                if (field == null) {
+                    throw new WebApplicationException(Response.status(400).entity(&quot;field must not be null&quot;).build());
+                }
+                if (term == null) {
+                    throw new WebApplicationException(Response.status(400).entity(&quot;term must not be null&quot;).build());
+                }
+                if (resultfields == null) {
+                    throw new WebApplicationException(Response.status(400).entity(&quot;resultfields must not be null&quot;).build());
+                }
+                action.setTarget(output);
+                StringBuilder sb = new StringBuilder();
+                if (filter != null) {
+                    sb.append(&quot;{\&quot;fields\&quot;:&quot;);
+                    append(sb, resultfields);
+                    sb.append(&quot;,\&quot;query\&quot;:{\&quot;filtered\&quot;:{\&quot;query\&quot;:{\&quot;text\&quot;:{\&quot;&quot;)
+                            .append(field).append(&quot;\&quot;:\&quot;&quot;).append(term)
+                            .append(&quot;\&quot;}},\&quot;filter\&quot;:{\&quot;term\&quot;:{&quot;).append(filter).append(&quot;}}}}}&quot;);
+                } else {
+                    sb.append(&quot;{\&quot;fields\&quot;:&quot;);
+                    append(sb, resultfields);
+                    sb.append(&quot;,\&quot;query\&quot;:{\&quot;text\&quot;:{\&quot;&quot;)
+                            .append(field).append(&quot;\&quot;:\&quot;&quot;).append(term)
+                            .append(&quot;\&quot;}}}&quot;);
+                }
+                action.search(sb.toString());
+            }
+        };
+    }
+
+    private void append(StringBuilder sb, List&lt;String&gt; list) {
+        boolean first = true;
+        sb.append(&quot;[&quot;);
+        for (String s : list) {
+            if (!first) {
+                sb.append(&#39;,&#39;);
+            }
+            sb.append(&quot;\&quot;&quot;).append(s).append(&quot;\&quot;&quot;);
+            first = false;
+        }
+        sb.append(&quot;]&quot;);
+    }
+}
+</code></pre><h1>The jQuery front page</h1><p>With the autocompleter written in Java JAX-RS, it is more easy to understand the jQuery part of the autocompletion architecture. This HTML page is a very basic jQuery example. It is enriched with HTML autocompletion because we find it useful to add icons to the library title catalog information to signal the media type to the user.</p><p>A somewhat complex part is the construction of the title label for linewise display in the drop down area. You can safely ignore that part. It is enough to know the structure of the metadata of a library catalog is hierarchically organized, where title information forms a sequence of objects.</p><p>Note how the image icon is excluded from the autocompletion value, since we should pass only textual information to the finl query construction, when the user selects an entry from the autocompletion offer.</p>
+<pre><code>&lt;html&gt;
+    &lt;head&gt;
+        &lt;meta charset=&quot;UTF-8&quot;/&gt;
+        &lt;link type=&quot;text/css&quot; href=&quot;css/smoothness/jquery-ui-1.8.22.custom.css&quot; rel=&quot;Stylesheet&quot; /&gt;
+        &lt;script src=&quot;js/jquery-1.8.0.min.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;js/jquery-ui-1.8.22.custom.min.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;js/jquery.ui.autocomplete.html.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+    &lt;/head&gt;
+
+    &lt;body&gt;
+
+        &lt;div&gt;
+            &lt;h1&gt;Autocompletion Demo&lt;/h1&gt;
+            &lt;div&gt;
+                &lt;label for=&quot;search&quot;&gt;Search &lt;/label&gt;
+                &lt;input id=&quot;search&quot;/&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;script&gt;
+            $(function() {
+                $(&quot;#search&quot;).autocomplete({
+                    html: true,
+                    source: function(request, response) {
+                        $.ajax({
+                            url: &quot;http://xbib.org/services/autocomplete&quot;,
+                            type: &quot;post&quot;,
+                            data: {
+                                field: &quot;xbib:titleAutocomplete&quot;,
+                                term: request.term,
+                                resultfields: [ &quot;dc:title&quot;,&quot;dc:contributor&quot;,&quot;dc:format&quot; ],
+                                from: 0,
+                                size: 10
+                            },
+                            dataType: &quot;json&quot;,
+                            success: function(data) {
+                                response($.map(data.hits.hits, function(item) {
+                                    var v = item.fields[&#39;dc:title&#39;];
+                                    var w;
+                                    if( Object.prototype.toString.call(v) === &#39;[object Array]&#39; ) {
+                                        v.map(function(element, index, array) {
+                                            for (var i in element) {
+                                                if (element.hasOwnProperty(i)) {
+                                                    w = w ? w + &quot; / &quot; + element[i] :element[i];
+                                                }
+                                            }
+                                        })                                     
+                                    }
+                                    var label = 
+                                            (w ? w : item.fields[&#39;dc:title&#39;][&#39;xbib:title&#39;]) + 
+                                            (item.fields[&#39;dc:title&#39;][&#39;xbib:titleSub&#39;] ? &quot; / &quot; + item.fields[&#39;dc:title&#39;][&#39;xbib:titleSub&#39;] : &quot;&quot;) +
+                                            (item.fields[&#39;dc:contributor&#39;] &amp;&amp; item.fields[&#39;dc:contributor&#39;][&#39;bib:namePersonal&#39;] ? &quot; / &quot; + item.fields[&#39;dc:contributor&#39;][&#39;bib:namePersonal&#39;] : &quot;&quot;) +
+                                            (item.fields[&#39;dc:contributor&#39;] &amp;&amp; item.fields[&#39;dc:contributor&#39;][&#39;bib:nameCorporate&#39;] ? &quot; / &quot; + item.fields[&#39;dc:contributor&#39;][&#39;bib:nameCorporate&#39;] : &quot;&quot;) +
+                                            (item.fields[&#39;dc:contributor&#39;] &amp;&amp; item.fields[&#39;dc:contributor&#39;][&#39;bib:nameConference&#39;] ? &quot; / &quot; + item.fields[&#39;dc:contributor&#39;][&#39;bib:nameConference&#39;] : &quot;&quot;);
+                                    return {
+                                        label: &#39;&amp;nbsp;&lt;img alt=&quot;&quot; src=&quot;images/format/&#39; + item.fields[&#39;dc:format&#39;][&#39;dcterms:medium&#39;] + &#39;.png&quot;&gt;&lt;/img&gt; &#39; + label,
+                                        value: label
+                                    }
+                                }));
+                            }
+                        });
+                    },
+                    minLength: 2
+                })
+            });
+        &lt;/script&gt;
+
+    &lt;/body&gt;
+&lt;/html&gt;
+</code></pre><h2>Examples</h2><p><img src="/images/autocomplete-example-1.png" alt="Typing""/></p><p><img src="/images/autocomplete-example-2.png" alt="Typing""/></p><h2>References</h2><p>[1] Swiffin, A. L., Arnott, J. L., Pickering, J. A., &amp; Newell, A. F. (1987). Adaptive and predictive techniques in a communication prosthesis. Augmentative and Alternative Communication, 3, 181–191</p></p>
+
+    </div>
+
+	<hr />
+
+    <!-- I got these buttons from simplesharebuttons.com -->
+<div class="share-buttons share-buttons-post">
+
+<!-- Facebook -->
+<a href="http://www.facebook.com/sharer.php?u=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html" target="_blank"><img src="/images//simplesharebuttons/facebook.png" alt="Facebook" /></a>
+
+<!-- Twitter -->
+<a href="http://twitter.com/share?url=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html&text='Autocompletion with jQuery, JAX-RS and Elasticsearch' by @xbib" target="_blank"><img src="/images/simplesharebuttons/twitter.png" alt="Twitter" /></a>
+
+<!-- Google+ -->
+<a href="https://plus.google.com/share?url=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/google.png" alt="Google" /></a>
+
+<!-- Digg -->
+<a href="http://www.digg.com/submit?url=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/diggit.png" alt="Digg" /></a>
+
+<!-- Reddit -->
+<a href="http://reddit.com/submit?url=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html&title=Autocompletion with jQuery, JAX-RS and Elasticsearch" target="_blank"><img src="/images/simplesharebuttons/reddit.png" alt="Reddit" /></a>
+
+<!-- LinkedIn -->
+<a href="http://www.linkedin.com/shareArticle?mini=true&url=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/linkedin.png" alt="LinkedIn" /></a>
+
+<!-- Pinterest -->
+<a href="javascript:void((function()%7Bvar%20e=document.createElement('script');e.setAttribute('type','text/javascript');e.setAttribute('charset','UTF-8');e.setAttribute('src','http://assets.pinterest.com/js/pinmarklet.js?r='+Math.random()*99999999);document.body.appendChild(e)%7D)());"><img src="/images/simplesharebuttons/pinterest.png" alt="Pinterest" /></a>
+
+<!-- StumbleUpon-->
+<a href="http://www.stumbleupon.com/submit?url=http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html&title=Autocompletion with jQuery, JAX-RS and Elasticsearch" target="_blank"><img src="/images/simplesharebuttons/stumbleupon.png" alt="StumbleUpon" /></a>
+
+<!-- Email -->
+<a href="mailto:?Subject=Autocompletion with jQuery, JAX-RS and Elasticsearch&Body=I%20saw%20this%20and%20thought%20of%20you!%20 http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html" target="_blank"><img src="/images/simplesharebuttons/email.png" alt="Email" /></a>
+
+</div>
+
+	<div id="disqus_thread"></div>
+
+	<script type="text/javascript">
+    var disqus_shortname = 'chaoscodingscomments'; // Required - Replace example with your forum shortname
+    var disqus_identifier = 'applications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html';
+    var disqus_title = "Autocompletion with jQuery, JAX-RS and Elasticsearch";
+    var disqus_url = 'http://jprante.github.ioapplications/2012/08/17/Autocompletion-with-jQuery-JAX-RS-and-Elasticsearch.html';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+	</script>
+
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+		</div>
+		<div id="push"></div>
+    </div>
+    
+    <div id="footer">
+      <div class="container">
+        <p class="muted credit">&copy; 2012-2015 Jörg Prante | Mixed with <a href="http://getbootstrap.com/">Bootstrap v3.3.1</a> | Baked with <a href="http://jbake.org">JBake v2.3.2</a></p>
+      </div>
+    </div>
+    
+    <!-- javascript -->
+    <script src="../../../../js/jquery-2.1.3.min.js"></script>
+    <script src="../../../../js/bootstrap.min.js"></script>
+    <script src="../../../../js/prettify.js"></script>
+
+    <script type="text/javascript">
+        var disqus_shortname = 'chaoscodingscomments'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+    </script>
+
+  </body>
+</html>

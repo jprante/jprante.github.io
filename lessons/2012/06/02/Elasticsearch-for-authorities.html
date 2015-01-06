@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Elasticsearch for bibliographic authorities</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="keywords" content="">
+    <meta name="generator" content="JBake">
+
+    <!-- styles -->
+    <link href="../../../../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../../../../css/bootstrap-theme.min.css" rel="stylesheet">
+    <link href="../../../../css/asciidoctor.css" rel="stylesheet">
+    <link href="../../../../css/base.css" rel="stylesheet">
+    <link href="../../../../css/prettify.css" rel="stylesheet">
+
+    <!-- Fav and touch icons -->
+    <link rel="shortcut icon" href="../../../../favicon.ico">
+  </head>
+  <body onload="prettyPrint()">
+    <div id="wrap">
+   
+	
+		<!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../../../../">Jörg Prante</a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="../../../../index.html">Home</a></li>
+            <li><a href="../../../../about.html">About</a></li>
+            <li><a href="../../../../feed.xml">Subscribe</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="container">
+
+	<div class="post">
+
+	<div class="page-header">
+		<h1>Elasticsearch for bibliographic authorities</h1>
+	</div>
+
+    <p class="post-info">
+		<i class="fa fa-calendar-o"></i>
+		&nbsp;02 Juni 2012
+		&nbsp;&nbsp;&nbsp;<i class="glyphicon glyphicon-bullhorn"></i>&nbsp;
+		<a href="lessons/2012/06/02/Elasticsearch-for-authorities.html#disqus_thread" data-disqus-identifier="lessons/2012/06/02/Elasticsearch-for-authorities.html">
+			0 Comments
+		</a>
+	</p>
+
+	<p><p><img src="/images/Gottfried_Wilhelm_von_Leibniz.jpg" alt="Leibnix""/></p><p><em>Leibniz, as a librarian, used subject headings in Bibliotheca boineburgica to establish 'loci communes'</em></p><p>Libraries are challenged with many search tasks since decades. When producing new catalog entries, it has been observed very soon since the mid of the 20th century that it is useful to save work by automatically obtaining already existing entries from the catalog. But how do library professionals find existing catalog entries efficiently?</p><p>There are several inventions of library professionals in this field:</p>
+<ul>
+  <li><p>Metadata. Yes, librarians invented 'intellectual' metadata. Metadata allows for excerpting important parts from all the information of a media resource like a book. Librarians invented not only subject headings but even compact title and author entities a few centuries before, revolutionizing the publishing industry.</p></li>
+  <li><p>Controlled metadata. Catalog rules were invented to enforce librarians using always the same verbal forms for entity names in catalogs, the <em>authorities</em>. The form selected for main entries in the catalog is also called <em>heading</em>. One of the most successful controlled metadata is history are authority files or authority lists [1], such as the Library of Congress Subject Headings (LCSH). In Germany, the first automated authority file was the Körperschaftsdatei of the Zeitschriftendatenbank, invented in the early 1970s.</p></li>
+  <li><p>The exchange of controlled metadata. Librarians also invented methods to fusion metadata in large databases for harmonization of authority files. A recent impressive one is the <em>Virtual International Authority File</em> (VIAF). Many nations worldwide can align their entity vocabulary in authority files with the help of VIAF.</p></li>
+  <li><p>The integration of controlled metadata into the Semantic Web. By using simple <em>Linked Data</em> techniques as postulated by Tim Berners-Lee, librarians joined the efforts of the <em>World Wide Web Consortium</em> (W3C) to establish the web as a huge global online information database of facts and statements including library catalogs.</p></li>
+</ul><p>In Germany, the Deutsche Nationalbibliothek (DNB) just harmonized defragmented german authority files into a single authory file called <em>Gemeinsame Normdatei</em> (GND). DNB adjusted the catalog rules and assigned URIs to authority entities. This has been recognized as a remarkable step in authority metadata management in german libraries, which has a long history [2], [3].</p><h2>Efficient authority search</h2><p>But librarians did not care too much for efficient authority search as they go along with their inventions. Up to now, many german libraries offer only rudimentary OPACs with insufficent search capabilities for authority files, dating back on search technology of the 70s of the last century. Such search interfaces are always affected of impedance mismatches due to traditional data formats for cataloging like <em>Machine-readable Cataloging</em> (MARC) or <em>Maschinelles Austauschformat für Bibliotheken</em> (MAB).</p><p>Lateley, Deutsche Nationalbibliothek prepared GND in an RDF Turtle dump [4], which fits nicely into W3C semantic web and is perfect for indexing into modern search engines. The RDF turtle dump is licensed into the public domain - <em>Creative Commons Zero</em> (CC0), so everyone can use the data and enrich the data to the fullest extent without having to ask for permission [5].</p><p>Updates are offered by DNB via an <em>Open Archives Initiative</em> (OAI) interface on a daily basis. This is a "pull" mechanism with limited scalability.</p><p>It wasn't too hard to implement an indexer that indexes RDF turtle data in Elasticsearch. The rough components are</p>
+<ul>
+  <li><p>a turtle parser</p></li>
+  <li><p>a namespace environment for parsing</p></li>
+  <li><p>a JSON serializer for RDF graphs</p></li>
+  <li><p>a bulk indexer for Elasticsearch</p></li>
+  <li><p>an OAI river for Elasticsearch for receiving updates</p></li>
+</ul><p>As you have noticed, there is no more need to analyze MARC or MAB data or to build schemas for indexing, mapping data from one format to another, and so on. All the tedious boilerplate coding has gone.</p><h2>Indexing example</h2><p>Here is an example command line how to index the full data set into Elasticsearch. The tool is called<br/><code>org.xbib.tools.indexer.ElasticsearchGNDIndexer</code>, the source GND file is <code>GND.ttl.gz</code>, and the target is an Elasticsearch cluster reachable by the network interface where <code>hostname</code> is bound to, with the index <code>gnd</code> and type <code>gnd</code></p><p>Let's first create an index <code>gnd</code> and switch off automatic date field detection.</p>
+<pre><code>curl -XPUT &#39;localhost:9200/gnd&#39; -d &#39;{ &quot;mappings&quot; : { &quot;gnd&quot; : { &quot;date_detection&quot; : false } } }&#39;
+</code></pre><p>Then let's start indexing.</p>
+<pre><code>java -cp target/xbib-tools-1.0-SNAPSHOT-elasticsearchgndindexer.jar org.xbib.tools.indexer.ElasticsearchGNDIndexer --gndfile file:///Users/joerg/Downloads/GND.ttl.gz --elasticsearch &quot;es://hostname:9300&quot; --index gnd --type gnd
+
+Jun 01, 2012 11:04:08 PM org.xbib.elasticsearch.ElasticsearchConnection findClusterName
+Information: cluster name found in URI es://hostname:9300?es.cluster.name=oaicluster
+Jun 01, 2012 11:04:08 PM org.xbib.elasticsearch.ElasticsearchSession createClient
+Information: starting discovery for clustername oaicluster
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.ElasticsearchSession findNodes
+Information: adding hostname address for transport client = inet[Jorg-Prantes-MacBook-Pro.local/192.168.1.113:9300]
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.ElasticsearchSession findNodes
+Information: hostname address added
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.ElasticsearchSession findNodes
+Information: addresses = [inet[Jorg-Prantes-MacBook-Pro.local/192.168.1.113:9300]]
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.ElasticsearchSession findNodes
+Information: connected nodes = [[#transport#-1][inet[Jorg-Prantes-MacBook-Pro.local/192.168.1.113:9300]]]
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.ElasticsearchSession findNodes
+Information: new connection to #transport#-1 
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 1 requests currently active)
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 2 requests currently active)
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 3 requests currently active)
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 4 requests currently active)
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 5 requests currently active)
+Jun 01, 2012 11:04:09 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 6 requests currently active)
+Jun 01, 2012 11:04:10 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 7 requests currently active)
+Jun 01, 2012 11:04:10 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 8 requests currently active)
+Jun 01, 2012 11:04:10 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 9 requests currently active)
+Jun 01, 2012 11:04:10 PM org.xbib.elasticsearch.BulkWrite processBulk
+Information: submitting new bulk index request (100 docs, 10 requests currently active)
+Jun 01, 2012 11:04:10 PM org.xbib.elasticsearch.BulkWrite processBulk
+[..]
+</code></pre><p>The process took roughly 80 minutes on a MacBook Pro for ~9,5 millions of different RDF subjects. The result is a 7.5 GB index in 5 shards (five distributed Lucene indices).</p><p>Update: indexing on three servers (HP DL-165 G7, 2x12core Opteron 6172, 16 GB RAM) took 27 minutes for 9.493.987 docs (97.267.642 triples) = 5.860 docs/sec (60.041 triples/sec), result is a 7.7 GB (total of 15.4 GB) index in 24 shards.</p><p><img src="/images/elasticsearch-gnd-sample-index.png" alt="elasticsearch-gnd-sample-index""/></p><h2>Search example</h2><p>Here is an example of a quick search. The result contains two entries of the GND, one from the former Schlagwortdatei and the Gemeinsame Körperschaftsdatei.</p>
+<pre><code>curl -XGET &#39;localhost:9200/gnd/gnd/_search?q=hbz%20nordrhein&#39;
+
+[...]
+             {
+             &quot;_source&quot; : {
+               &quot;gnd:preferredNameForTheCorporateBody&quot; : &quot;Hochschulbibliothekszentrum des Landes Nordrhein-Westfalen &lt;Köln&gt;&quot;,
+               &quot;gnd:geographicAreaCode&quot; : &quot;http://d-nb.info/standards/vocab/gnd/geographic-area-code#XA-DE&quot;,
+               &quot;rdf:type&quot; : &quot;http://d-nb.info/standards/elementset/gnd#CorporateBody&quot;,
+               &quot;gnd:oldAuthorityNumber&quot; : &quot;(DE-588b)2047974-8&quot;,
+               &quot;gnd:gndIdentifier&quot; : &quot;2047974-8&quot;,
+               &quot;gnd:placeOfBusiness&quot; : &quot;http://d-nb.info/gnd/4031483-2&quot;,
+               &quot;gnd:variantNameForTheCorporateBody&quot; : [
+                  &quot;Hochschulbibliothekszentrum NRW &lt;Köln&gt;&quot;,
+                  &quot;hbz&quot;,
+                  &quot;Hochschulbibliothekszentrum &lt;Köln&gt;&quot;
+               ]
+            },
+            &quot;_score&quot; : 1.4516485,
+            &quot;_index&quot; : &quot;gnd&quot;,
+            &quot;_id&quot; : &quot;http://d-nb.info/gnd/2047974-8&quot;,
+            &quot;_type&quot; : &quot;gnd&quot;
+         },
+         {
+            &quot;_source&quot; : {
+               &quot;gnd:preferredNameForTheCorporateBody&quot; : &quot;Hochschulbibliothekszentrum des Landes     Nordrhein-Westfalen&quot;,
+               &quot;gnd:gndSubjectCategory&quot; : &quot;http://d-nb.info/vocab/gnd-sc#6.7&quot;,
+               &quot;rdf:type&quot; : &quot;http://d-nb.info/standards/elementset/gnd#CorporateBody&quot;,
+               &quot;gnd:oldAuthorityNumber&quot; : &quot;(DE-588c)4194078-7&quot;,
+               &quot;gnd:gndIdentifier&quot; : &quot;4194078-7&quot;,
+               &quot;gnd:geographicAreaCode&quot; : &quot;http://d-nb.info/standards/vocab/gnd/geographic-area-code#XA-DE-NW&quot;,
+               &quot;gnd:spatialAreaOfActivity&quot; : &quot;http://d-nb.info/gnd/4042570-8&quot;,
+               &quot;gnd:topic&quot; : &quot;http://d-nb.info/gnd/4132773-1&quot;,
+               &quot;gnd:broaderTermInstantial&quot; : &quot;http://d-nb.info/gnd/4630294-3&quot;,
+               &quot;gnd:placeOfBusiness&quot; : &quot;http://d-nb.info/gnd/4031483-2&quot;,
+               &quot;gnd:variantNameForTheCorporateBody&quot; : &quot;HBZ&quot;
+            },
+            &quot;_score&quot; : 1.4498183,
+            &quot;_index&quot; : &quot;gnd&quot;,
+            &quot;_id&quot; : &quot;http://d-nb.info/gnd/4194078-7&quot;,
+            &quot;_type&quot; : &quot;gnd&quot;
+         },
+[...]
+</code></pre><p>As you noticed by this quick search, GND may contain duplicates from the predecessing authority files.</p><p>It is not a big challenge to transform Elasticsearch JSON search results back to RDF, to N-triples, Turtle, or RDF/XML format, for exporting documents.</p><p>As Elasticsearch is only used as a coarse-grained triple store with documents containing sub-graphs of RDF triples with common subject URIs, it is rather tough to implement a SPARQL interface covering all the documents. So, for a full semantic web approach, you have to use a SPARQLified triple store like 4store. But native triple stores do not offer so many useful features like Elasticsearch and are focused on special tasks.</p><h2>A river for OAI</h2><p>With rivers, Elasticsearch can be extended to fetch data from external sources. I have implemented an <em>Open Archives Initiative</em> (OAI) river [6]. Such a river acts like an OAI harvester, running unattendedly.</p><p>For example an OAI river for GND updates will look like:</p>
+<pre><code>curl -XPUT &#39;localhost:9200/_river/gnd/_meta&#39; -d &#39;{&quot;type&quot;:&quot;oai&quot;, &quot;oai&quot;:{&quot;url&quot;:&quot;http://services.dnb.de/oai/repository&quot;,&quot;set&quot;:&quot;authorities&quot;,&quot;metadataPrefix&quot;:&quot;RDFxml&quot;}, &quot;index&quot;:{&quot;index&quot;:&quot;gnd&quot;,&quot;type&quot;:&quot;gnd&quot;}}&#39;
+</code></pre><p>This will pull GND data on a regular basis from DNB, for example, each hour.</p><p>An OAI river in action will give messages like this in the Elasticsearch logfile.</p>
+<pre><code>[2012-06-02 12:21:47,252][INFO ][river.oai                ] [Solarr] [oai][gnd] OAI harvest: URL [http://services.dnb.de/oai/repository] set [authorities] metadataPrefix [RDFxml] from [2012-06-02T11:00:00Z] until [2012-06-02T12:00:00Z] resumptionToken [null]
+Jun 02, 2012 12:21:47 PM org.xbib.io.http.netty.HttpOperation prepareExecution
+Information: method=[GET] uri=[http://services.dnb.de/oai/repository] parameter=[&quot;metadataPrefix=RDFxml&quot;; &quot;set=authorities&quot;; &quot;verb=ListRecords&quot;]
+[2012-06-02 12:21:47,887][INFO ][river.oai                ] [Solarr] [oai][gnd] submitting new bulk index request (13 docs, 1 requests currently active)
+[2012-06-02 12:21:47,892][INFO ][river.oai                ] [Solarr] [oai][gnd] waiting for 1 active bulk requests
+[2012-06-02 12:21:47,910][INFO ][river.oai                ] [Solarr] [oai][gnd] bulk index success (23 millis, 13 docs, total of 26 docs)
+[2012-06-02 12:21:47,913][INFO ][river.oai                ] [Solarr] [oai][gnd] next harvest, waiting 1h, URL [http://services.dnb.de/oai/repository] set [authorities] metadataPrefix [RDFxml]
+</code></pre><p>By receiving updates an a regular basis, the GND search solution is complete.</p><h2>Summary</h2><p>With powerful search capabilities, Elasticsearch can be turned into an important back-bone for the future libary catalog search infrastructure for the following reasons:</p>
+<ul>
+  <li><p>9,5 million GND entries are indexed in minutes</p></li>
+  <li><p>search results return in milliseconds</p></li>
+  <li><p>growing search and index requirements are not a big challenge</p></li>
+  <li><p>a wealth of additional search features such as facet search (drill-down) is availiable which is known to be useful for authority-controlled library catalogs</p></li>
+  <li><p>by keeping the RDF data structure intact, Elasticsearch offers scalable RDF literal search</p></li>
+  <li><p>using the schema-free and multi-tenancy property of Elasticsearch, it is a platform for maintaining several catalogs in multiple indexes and for aggregating related metadata</p></li>
+</ul><p>Aggregating metadata is not limited to authority files. Elasticsearch could also aggregate holdings from many libraries. It is even possible to attach full SRU and OAI capabilities to Elasticsearch, turning Elasticsearch into a complete front-end for traditional library systems. This will be shown in one of the subsequent postings here.</p><p>This posting is just scraping the surface, but search engines like Elasticsearch can help pushing libraries to a new level of global data harmonization, for example, union catalogs on steroids, or an inter-library loan index. And the improved results of such a globalization will be visible to all of you when you use public and academic libraries all around the world.</p><h2>References</h2><p>[1] Allen Kent, Harold Lancour: Encyclopedia of Library and Information Science. New York,<br/>Dekker, 1969, Vol. 2, p. 132−138.</p><p>[2] <a href="http://bibliothekarisch.de/blog/2012/05/02/gnd-loest-pnd-gkd-und-swd-ab/">http://bibliothekarisch.de/blog/2012/05/02/gnd-loest-pnd-gkd-und-swd-ab/</a></p><p>[3] <a href="http://repositorium.uni-osnabrueck.de/bitstream/urn:nbn:de:gbv:700-201001304634/1/ELibD27_normdateien.pdf">http://repositorium.uni-osnabrueck.de/bitstream/urn:nbn:de:gbv:700-201001304634/1/ELibD27_normdateien.pdf</a></p><p>[4] <a href="http://www.dnb.de/DE/Service/DigitaleDienste/LinkedData/linkeddata_node.html">http://www.dnb.de/DE/Service/DigitaleDienste/LinkedData/linkeddata_node.html</a></p><p>[5] <a href="http://creativecommons.org/publicdomain/zero/1.0/deed.de">http://creativecommons.org/publicdomain/zero/1.0/deed.de</a></p><p>[6] <a href="https://github.com/jprante/elasticsearch-river-oai/">https://github.com/jprante/elasticsearch-river-oai/</a></p></p>
+
+    </div>
+
+	<hr />
+
+    <!-- I got these buttons from simplesharebuttons.com -->
+<div class="share-buttons share-buttons-post">
+
+<!-- Facebook -->
+<a href="http://www.facebook.com/sharer.php?u=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html" target="_blank"><img src="/images//simplesharebuttons/facebook.png" alt="Facebook" /></a>
+
+<!-- Twitter -->
+<a href="http://twitter.com/share?url=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html&text='Elasticsearch for bibliographic authorities' by @xbib" target="_blank"><img src="/images/simplesharebuttons/twitter.png" alt="Twitter" /></a>
+
+<!-- Google+ -->
+<a href="https://plus.google.com/share?url=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html" target="_blank"><img src="/images/simplesharebuttons/google.png" alt="Google" /></a>
+
+<!-- Digg -->
+<a href="http://www.digg.com/submit?url=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html" target="_blank"><img src="/images/simplesharebuttons/diggit.png" alt="Digg" /></a>
+
+<!-- Reddit -->
+<a href="http://reddit.com/submit?url=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html&title=Elasticsearch for bibliographic authorities" target="_blank"><img src="/images/simplesharebuttons/reddit.png" alt="Reddit" /></a>
+
+<!-- LinkedIn -->
+<a href="http://www.linkedin.com/shareArticle?mini=true&url=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html" target="_blank"><img src="/images/simplesharebuttons/linkedin.png" alt="LinkedIn" /></a>
+
+<!-- Pinterest -->
+<a href="javascript:void((function()%7Bvar%20e=document.createElement('script');e.setAttribute('type','text/javascript');e.setAttribute('charset','UTF-8');e.setAttribute('src','http://assets.pinterest.com/js/pinmarklet.js?r='+Math.random()*99999999);document.body.appendChild(e)%7D)());"><img src="/images/simplesharebuttons/pinterest.png" alt="Pinterest" /></a>
+
+<!-- StumbleUpon-->
+<a href="http://www.stumbleupon.com/submit?url=http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html&title=Elasticsearch for bibliographic authorities" target="_blank"><img src="/images/simplesharebuttons/stumbleupon.png" alt="StumbleUpon" /></a>
+
+<!-- Email -->
+<a href="mailto:?Subject=Elasticsearch for bibliographic authorities&Body=I%20saw%20this%20and%20thought%20of%20you!%20 http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html" target="_blank"><img src="/images/simplesharebuttons/email.png" alt="Email" /></a>
+
+</div>
+
+	<div id="disqus_thread"></div>
+
+	<script type="text/javascript">
+    var disqus_shortname = 'chaoscodingscomments'; // Required - Replace example with your forum shortname
+    var disqus_identifier = 'lessons/2012/06/02/Elasticsearch-for-authorities.html';
+    var disqus_title = "Elasticsearch for bibliographic authorities";
+    var disqus_url = 'http://jprante.github.iolessons/2012/06/02/Elasticsearch-for-authorities.html';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+	</script>
+
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+
+		</div>
+		<div id="push"></div>
+    </div>
+    
+    <div id="footer">
+      <div class="container">
+        <p class="muted credit">&copy; 2012-2015 Jörg Prante | Mixed with <a href="http://getbootstrap.com/">Bootstrap v3.3.1</a> | Baked with <a href="http://jbake.org">JBake v2.3.2</a></p>
+      </div>
+    </div>
+    
+    <!-- javascript -->
+    <script src="../../../../js/jquery-2.1.3.min.js"></script>
+    <script src="../../../../js/bootstrap.min.js"></script>
+    <script src="../../../../js/prettify.js"></script>
+
+    <script type="text/javascript">
+        var disqus_shortname = 'chaoscodingscomments'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+        }());
+    </script>
+
+  </body>
+</html>
